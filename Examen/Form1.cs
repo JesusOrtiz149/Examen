@@ -46,7 +46,7 @@ namespace Examen
                     MessageBox.Show("falta el puerto ");
                     return;
                 }
-
+                MessageBox.Show("Puerto abierto siono: " + puertoSerie.IsOpen);
                 puertoSerie = new SerialPort(cmbPuertos.Text, 9600);
                 puertoSerie.DataReceived += PuertoSerie_DataReceived;
                 puertoSerie.Open();
@@ -64,12 +64,13 @@ namespace Examen
 
             try
             {
+                MessageBox.Show("Registrando evento en la base de datos...");
                 using (SqlConnection con = new SqlConnection(conexion))
                 {
                     con.Open();
 
                     SqlCommand cmd = new SqlCommand(
-                        "insert into Registros (Fecha, Hora, Puerto) values (@fecha, @hora, @puerto)", con);
+                        "insert into RegistroBoton (Fecha, Hora, Puerto) values (@fecha, @hora, @puerto)", con);
 
                     cmd.Parameters.AddWithValue("@fecha", ahora.Date);
                     cmd.Parameters.AddWithValue("@hora", ahora.TimeOfDay);
@@ -93,6 +94,7 @@ namespace Examen
 
                 if (dato == "presiona2")
                 {
+                    MessageBox.Show("Dato recibido: " + dato);  
                     Invoke(new Action(RegistrarEvento));
                 }
             }
@@ -106,13 +108,14 @@ namespace Examen
             {
                 using (SqlConnection con = new SqlConnection(conexion))
                 {
-                    SqlDataAdapter da = new SqlDataAdapter("select * from Registros order by Id desc", con);
+                    SqlDataAdapter da = new SqlDataAdapter("select * from RegistroBoton order by Id desc", con);
                     DataTable dt = new DataTable();
                     da.Fill(dt);
                     dataGridView1.DataSource = dt;
                 }
             }
             catch { }
+            MessageBox.Show("Registros actualizados");
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
