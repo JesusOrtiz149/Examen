@@ -1,19 +1,21 @@
 
 using System;
 using System.Data;
-using Microsoft.Data.SqlClient;
+//using Microsoft.Data.SqlClient;
+using MySql.Data.MySqlClient;
 using System.IO.Ports;
 using System.Windows.Forms;
+using System.Drawing;
 
 
 namespace Examen
 {
     public partial class Form1 : Form
     {
-        SerialPort puertoSerie;
-        string conexion = "Server=DESKTOP-U39V4L7;Database=Registro;Integrated Security=True;TrustServerCertificate=True;";
-
-
+        SerialPort puertoSerie = null;
+        //string conexion = "Server=DESKTOP-3KGVR4J;Database=Registro;Integrated Security=True;TrustServerCertificate=True;";
+        //string conexion = "Server=localhost,1433;Database=Registro;Integrated Security=True;TrustServerCertificate=True;";
+        string conexion = "Server=localhost;Database=registro;User=root;Password=1234;Port=3306;";
 
 
 
@@ -24,9 +26,10 @@ namespace Examen
         public Form1()
         {
             InitializeComponent();
-            timer1.Interval = 1500;
+           /* timer1.Interval = 1500;
             timer1.Tick += Timer1_Tick;
-            timer1.Start();
+            timer1.Start();*/
+         //  CargarRegistros() ;
 
 
         }
@@ -34,7 +37,7 @@ namespace Examen
         private void Form1_Load(object sender, EventArgs e)
         {
             cmbPuertos.Items.AddRange(SerialPort.GetPortNames());
-            CargarRegistros();
+           CargarRegistros();
         }
 
         private void btnConectar_Click(object sender, EventArgs e)
@@ -43,19 +46,30 @@ namespace Examen
             {
                 if (cmbPuertos.SelectedItem == null)
                 {
-                    MessageBox.Show("falta el puerto ");
+                    MessageBox.Show("Selecciona un puerto");
                     return;
                 }
-                MessageBox.Show("Puerto abierto siono: " + puertoSerie.IsOpen);
-                puertoSerie = new SerialPort(cmbPuertos.Text, 9600);
-                puertoSerie.DataReceived += PuertoSerie_DataReceived;
+
+                if (puertoSerie == null)
+                {
+                    puertoSerie = new SerialPort(cmbPuertos.Text, 9600);
+                    puertoSerie.DataReceived += PuertoSerie_DataReceived;
+                }
+
+                if (puertoSerie.IsOpen)
+                {
+                    MessageBox.Show("El puerto ya está abierto");
+                    return;
+                }
+
+                puertoSerie.PortName = cmbPuertos.Text;
                 puertoSerie.Open();
 
-                //lblEstado.Text = "Conectado a " + cmbPuertos.Text;
+                MessageBox.Show("Conectado a " + cmbPuertos.Text);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error al conectar: " + ex.Message);
+                MessageBox.Show("Error al abrir puerto: " + ex.Message);
             }
         }
         private void RegistrarEvento()
@@ -64,7 +78,7 @@ namespace Examen
 
             try
             {
-                MessageBox.Show("Registrando evento en la base de datos...");
+                /*MessageBox.Show("Registrando evento en la base de datos...");
                 using (SqlConnection con = new SqlConnection(conexion))
                 {
                     con.Open();
@@ -77,7 +91,33 @@ namespace Examen
                     cmd.Parameters.AddWithValue("@puerto", puertoSerie.PortName);
 
                     cmd.ExecuteNonQuery();
+                }*/
+                try
+                {
+                    using (MySqlConnection con = new MySqlConnection(conexion))
+                    {
+                        con.Open();
+
+                        MySqlCommand cmd = new MySqlCommand(
+                            "insert into RegistroBoton (fecha, hora, puerto) VALUES (@f, @h, @p)", con);
+
+                        cmd.Parameters.AddWithValue("@f", DateTime.Now.ToString("yyyy-MM-dd"));
+                        cmd.Parameters.AddWithValue("@h", DateTime.Now.ToString("HH:mm:ss"));
+                        cmd.Parameters.AddWithValue("@p", puertoSerie.PortName);
+
+                        int filas = cmd.ExecuteNonQuery();
+
+                        MessageBox.Show("Filas insertadas: " + filas);
+                    }
+
+                    CargarRegistros();
                 }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("ERROR AL INSERTAR:\n" + ex.Message);
+                }
+
+
 
                 CargarRegistros();
             }
@@ -91,31 +131,58 @@ namespace Examen
             try
             {
                 string dato = puertoSerie.ReadLine().Trim();
+                MessageBox.Show("Dato recibido: " + dato);
 
                 if (dato == "presiona2")
                 {
-                    MessageBox.Show("Dato recibido: " + dato);  
+                    
                     Invoke(new Action(RegistrarEvento));
                 }
             }
-            catch { }
+            catch(Exception ex) {
+            MessageBox.Show(ex.Message);
+            }
         }
 
 
         private void CargarRegistros()
         {
+            /*try
+            {
+                // using (SqlConnection con = new SqlConnection(conexion))
+                 {
+                     SqlDataAdapter da = new SqlDataAdapter("select * from RegistroBoton order by Id desc", con);
+                     DataTable dt = new DataTable();
+                     da.Fill(dt);
+                     dataGridView1.DataSource = dt;
+                 }
+                
+            }
+            catch (Exception ex) {
+                MessageBox.Show("error: " + ex.Message);
+
+            }*/
             try
             {
-                using (SqlConnection con = new SqlConnection(conexion))
+                using (MySqlConnection con = new MySqlConnection(conexion))
                 {
-                    SqlDataAdapter da = new SqlDataAdapter("select * from RegistroBoton order by Id desc", con);
+                    con.Open();
+
+                    MySqlDataAdapter da =
+                        new MySqlDataAdapter("select * from  RegistroBoton order by id asc", con);
+
                     DataTable dt = new DataTable();
                     da.Fill(dt);
+
+                    dataGridView1.AutoGenerateColumns = true;
                     dataGridView1.DataSource = dt;
                 }
             }
-            catch { }
-            MessageBox.Show("Registros actualizados");
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al cargar registros: " + ex.Message);
+            }
+
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
